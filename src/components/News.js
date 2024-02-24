@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+/*import React, { Component } from 'react'
 import NewsItem from './NewsItem'
 import Spinner from './Spinner'
 import PropTypes from 'prop-types'
@@ -132,14 +132,124 @@ export class News extends Component {
           </div>
         </InfiniteScroll>
 
-        {/* <div className="container d-flex justify-content-between">
-          <button disabled={this.state.page <= 1} type="button" className="btn btn-dark" onClick={this.handlePrev}>	&larr; Previous</button>
-          <button disabled={this.state.page + 1 > Math.ceil(this.state.totalResults / this.props.pageSize)} type="button" className="btn btn-dark" onClick={this.handleNext}>Next &rarr;</button>
-        </div> */}
+        { }
       </>
 
     )
   }
+}*/
+import React, { Component } from 'react';
+import { extractKeywords } from './TextRazorService'; // Assuming TextRazorService is located in the services directory
+import NewsItem from './NewsItem';
+import Spinner from './Spinner';
+import PropTypes from 'prop-types';
+import InfiniteScroll from "react-infinite-scroll-component";
+
+export class News extends Component {
+  static defaultProps = {
+    country: "in",
+    pageSize: 8,
+    category: "general",
+    apiKey: "eca790dd945b4e0b919bb9b3665a4b5b" // Replace with your actual API key for the News API
+  }
+  static propTypes = {
+    country: PropTypes.string,
+    pageSize: PropTypes.number,
+    category: PropTypes.string,
+    heading2: PropTypes.bool,
+    apiKey: PropTypes.string
+  }
+
+  capitalizeFirstLetter = (string) => {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      articles: [],
+      loading: true,
+      page: 1,
+      totalResults: 0,
+      searchQuery: '',
+    }
+    document.title = `${this.capitalizeFirstLetter(this.props.category)}`;
+  }
+
+  async componentDidMount() {
+    this.fetchNews();
+  }
+
+  fetchNews = async () => {
+    const url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&category=${this.props.category}&apiKey=${this.props.apiKey}&page=1&pageSize=${this.props.pageSize}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    this.setState({
+      articles: data.articles,
+      totalResults: data.totalResults,
+      loading: false
+    });
+  };
+
+  fetchMoreData = async () => {
+    const nextPage = this.state.page + 1;
+    const url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&category=${this.props.category}&apiKey=${this.props.apiKey}&page=${nextPage}&pageSize=${this.props.pageSize}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    this.setState(prevState => ({
+      articles: prevState.articles.concat(data.articles),
+      totalResults: data.totalResults,
+      page: nextPage
+    }));
+  };
+
+  handleSearch = async () => {
+    const { searchQuery } = this.state;
+    if (!searchQuery) return; // If search query is empty, do nothing
+    
+    const keywords = searchQuery.split(" "); // Split search query into keywords
+    const filteredArticles = this.state.articles.filter(article =>
+      keywords.some(keyword => 
+        article.title.toLowerCase().includes(keyword.toLowerCase()) ||
+        (article.description && article.description.toLowerCase().includes(keyword.toLowerCase()))
+      )
+    );
+    this.setState({ articles: filteredArticles }); // Update articles with filtered articles
+  };
+
+  render() {
+    const { loading, articles, searchQuery } = this.state;
+
+    return (
+      <>
+        <h1 className="text-center" style={{ margin: '35px 0px', marginTop: '90px'}}>News- Top Headlines</h1>
+        <div className="container">
+          <h2 className="text-center" style={{ margin: '35px 0px' }}>{this.capitalizeFirstLetter(this.props.category)}</h2>
+        </div>
+        <div className="input-group mb-3">
+          <input type="text" className="form-control" placeholder="Search by keyword" style={{ width: '30%' }} value={searchQuery} onChange={e => this.setState({ searchQuery: e.target.value })} />
+          <button className="btn btn-outline-danger" type="button" onClick={this.handleSearch}>Search</button>
+        </div>
+        {loading && <Spinner/>}
+        <InfiniteScroll
+          dataLength={articles.length}
+          next={this.fetchMoreData}
+          hasMore={articles.length !== this.state.totalResults}
+          loader={<Spinner />}
+        >
+          <div className="container">
+            <div className="row">
+              {articles.map((article, index) => (
+                <div className="col-md-4" key={index}>
+                  <NewsItem title={article.title || ""} description={article.description || ""} imgUrl={article.urlToImage} newsUrl={article.url} author={article.author} date={article.publishedAt} source={article.source.name} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </InfiniteScroll>
+      </>
+    );
+  }
 }
 
-export default News
+export default News;
